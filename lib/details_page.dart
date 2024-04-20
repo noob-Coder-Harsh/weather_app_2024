@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:weather_app/settings_page.dart';
 import 'package:weather_app/weather_item.dart';
 import 'package:weather_app/constants.dart';
 import 'package:intl/intl.dart';
@@ -53,20 +54,26 @@ class _DetailPageState extends State<DetailPage> {
     }
 
     return Scaffold(
-      backgroundColor: _constants.primaryColor,
+      backgroundColor:Theme.of(context).brightness == Brightness.dark
+          ? _constants.primaryColorDark : _constants.primaryColor,
       appBar: AppBar(
         iconTheme: IconThemeData(color: Colors.white54),
         title: const Text('Daily Forecasts',style: TextStyle(color: Colors.white54,fontWeight: FontWeight.bold,fontSize: 28),),
         centerTitle: true,
-        backgroundColor: _constants.primaryColor,
+        backgroundColor:Theme.of(context).brightness == Brightness.dark
+            ? _constants.primaryColorDark : _constants.primaryColor,
         elevation: 0.0,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: IconButton(
                 onPressed: () {
-                  print("Settings Tapped!");
-                },
+              // Navigate to SettingsPage
+              Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SettingsPage()),
+            );
+    },
                 icon: const Icon(Icons.settings)),
           )
         ],
@@ -81,8 +88,9 @@ class _DetailPageState extends State<DetailPage> {
             child: Container(
               height: size.height * .68,
               width: size.width,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration:  BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                ? _constants.greyColorDark : _constants.greyColor,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(50),
                   topRight: Radius.circular(50),
@@ -182,7 +190,8 @@ class _DetailPageState extends State<DetailPage> {
                                     fontSize: 80,
                                     fontWeight: FontWeight.bold,
                                     foreground: Paint()
-                                      ..shader = _constants.shader,
+                                      ..shader = Theme.of(context).brightness == Brightness.dark
+                                    ?_constants.shaderDark :_constants.shader,
                                   ),
                                 ),
                                 Text(
@@ -191,7 +200,8 @@ class _DetailPageState extends State<DetailPage> {
                                     fontSize: 40,
                                     fontWeight: FontWeight.bold,
                                     foreground: Paint()
-                                      ..shader = _constants.shader,
+                                      ..shader = Theme.of(context).brightness == Brightness.dark
+                                          ?_constants.shaderDark :_constants.shader,
                                   ),
                                 ),
                               ],
@@ -233,7 +243,8 @@ class _DetailPageState extends State<DetailPage> {
                                                         getForecastWeather(index)["minTemperature"]
                                                             .toString(),
                                                         style: TextStyle(
-                                                          color: _constants.greyColor,
+                                                          color:Theme.of(context).brightness == Brightness.dark
+                                                          ?_constants.greyColorDark : _constants.greyColor,
                                                           fontSize: 30,
                                                           fontWeight: FontWeight.w600,
                                                         ),
@@ -241,7 +252,8 @@ class _DetailPageState extends State<DetailPage> {
                                                       Text(
                                                         '°',
                                                         style: TextStyle(
-                                                          color: _constants.greyColor,
+                                                          color:Theme.of(context).brightness == Brightness.dark
+                                                              ?_constants.greyColorDark : _constants.greyColor,
                                                           fontSize: 30,
                                                           fontWeight: FontWeight.bold,
                                                         ),
@@ -254,7 +266,8 @@ class _DetailPageState extends State<DetailPage> {
                                                         getForecastWeather(index)["maxTemperature"]
                                                             .toString(),
                                                         style: TextStyle(
-                                                          color: _constants.blackColor,
+                                                          color:Theme.of(context).brightness == Brightness.dark
+                                                              ?_constants.blackColorDark : _constants.blackColor,
                                                           fontSize: 30,
                                                           fontWeight: FontWeight.w600,
                                                         ),
@@ -262,7 +275,8 @@ class _DetailPageState extends State<DetailPage> {
                                                       Text(
                                                         '°',
                                                         style: TextStyle(
-                                                          color: _constants.blackColor,
+                                                          color:Theme.of(context).brightness == Brightness.dark
+                                                              ?_constants.blackColorDark : _constants.blackColor,
                                                           fontSize: 30,
                                                           fontWeight: FontWeight.bold,
                                                           fontFeatures: const [

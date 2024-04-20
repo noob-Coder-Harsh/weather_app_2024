@@ -2,12 +2,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share/share.dart';
+import 'package:weather_app/main.dart';
+import 'package:weather_app/settings_page.dart';
 import 'package:weather_app/weather_item.dart';
 import 'package:weather_app/constants.dart';
 import 'package:weather_app/details_page.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+
+import 'notification_services.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -17,13 +23,30 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<String> cities = ['New Delhi','Mumbai','Gurgaon','Aligarh','Panipat','Palwal','Bangalore','Kolkata','Chennai','Hyderabad', 'Pune','Ahmedabad','Jaipur',];
+  // NotificationServices notificationServices = NotificationServices();
+
+  List<String> cities = [
+    'New Delhi',
+    'Mumbai',
+    'Gurgaon',
+    'Aligarh',
+    'Panipat',
+    'Palwal',
+    'Bangalore',
+    'Kolkata',
+    'Chennai',
+    'Hyderabad',
+    'Pune',
+    'Ahmedabad',
+    'Jaipur',
+  ];
 
   final Constants _constants = Constants();
 
   static String apiKey = '4efce536c5864e80a2a145802241404'; //Paste Your API Here
 
-  String location = 'New Delhi'; //Default location
+  String location = 'Mumbai'; //Default location
+
   String weatherIcon = 'heavycloud.png';
   int temperature = 0;
   int windSpeed = 0;
@@ -37,7 +60,8 @@ class _HomePageState extends State<HomePage> {
   String currentWeatherStatus = '';
 
   //API Call
-  String searchWeatherAPI = "https://api.weatherapi.com/v1/forecast.json?key=$apiKey&days=7&q=";
+  String searchWeatherAPI =
+      "https://api.weatherapi.com/v1/forecast.json?key=$apiKey&days=7&q=";
 
   void fetchWeatherData(String searchText) async {
     try {
@@ -84,6 +108,52 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> getUserLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permissions are denied, show error message or default to a fallback position
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are denied forever, handle appropriately.
+      return;
+    }
+
+    // When everything is fine, get the user's current position
+    Position position = await Geolocator.getCurrentPosition();
+
+    // Reverse geocode the coordinates to get location name
+    List<Placemark> placeMarks = await placemarkFromCoordinates(
+      position.latitude,
+      position.longitude,
+    );
+
+    String currentLocationName = placeMarks.first.locality ?? 'Unknown';
+
+    setState(() {
+      if (cities.contains(currentLocationName)) {
+        cities.remove(currentLocationName);
+      }
+      cities.insert(0, currentLocationName);
+      location = currentLocationName;
+    });
+
+    // Fetch weather data using the location name
+    fetchWeatherData(currentLocationName);
+  }
 
   //function to return the first two names of the string location
   static String getShortLocationName(String s) {
@@ -100,9 +170,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void shareWeatherData() {
+    // Compose the text to share
+    String textToShare = 'Current weather in $location: $temperature°C';
+
+    // Use the share package to share the text
+    Share.share(textToShare);
+  }
+
   @override
   void initState() {
-    fetchWeatherData(location);
+    getUserLocation(); // Get user's location when the app starts
     super.initState();
   }
 
@@ -114,17 +192,40 @@ class _HomePageState extends State<HomePage> {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ?_constants.primaryColorDark : _constants.primaryColor,
+        title: const Text('Current Weather Status',
+          style: TextStyle(fontSize: 24, color: Colors.white54,
+              fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              shareWeatherData(); // Call the share function when the button is pressed
+            },
+            icon: const Icon(Icons.share),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+                onPressed: () {Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => SettingsPage()),);
+                },
+                icon: const Icon(Icons.settings)),
+          )
+        ],
+      ),
       body: Container(
         width: size.width,
         height: size.height,
-        padding: const EdgeInsets.only(top: 50, left: 10, right: 10),
-        color: _constants.primaryColor.withOpacity(.1),
+        padding: const EdgeInsets.only(top: 30, left: 10, right: 10),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? _constants.primaryColor.withOpacity(0.5) // Dark theme color
+            : _constants.primaryColor.withOpacity(0.1), // Light theme color
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-             Text('Current Weather Status',
-              style: TextStyle(fontSize: 24,color: Color(0xff205cf1).withOpacity(0.75),fontWeight: FontWeight.bold),),
-            SizedBox(height: 35,),
             //main Blue container
             buildCityWeather(location),
             buildHourlyWeatherForecast(),
@@ -140,10 +241,12 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
       height: size.height * .65,
       decoration: BoxDecoration(
-        gradient: _constants.linearGradientBlue,
+        gradient: Theme.of(context).brightness == Brightness.dark
+          ? _constants.linearGradientBlueDark : _constants.linearGradientBlue,
         boxShadow: [
           BoxShadow(
-            color: _constants.primaryColor.withOpacity(.5),
+            color: Theme.of(context).brightness == Brightness.dark
+            ? _constants.primaryColorDark.withOpacity(0.5) : _constants.primaryColor.withOpacity(0.5),
             spreadRadius: 5,
             blurRadius: 7,
             offset: const Offset(0, 3),
@@ -160,7 +263,8 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Image.asset(
-                'assets/pin.png',color: Colors.white70,
+                'assets/pin.png',
+                color: Colors.white70,
                 width: 20,
               ),
               const SizedBox(
@@ -170,11 +274,17 @@ class _HomePageState extends State<HomePage> {
                 child: DropdownButton(
                   dropdownColor: Colors.blue,
                   value: location,
-                  icon: const Icon(Icons.keyboard_arrow_down,color: Colors.white70,),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white70,
+                  ),
                   items: cities.map((String location) {
                     return DropdownMenuItem(
                       value: location,
-                      child: Text(location,style:  const TextStyle(color: Colors.white70),),
+                      child: Text(
+                        location,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
@@ -185,7 +295,6 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
               )
-
             ],
           ),
           SizedBox(
@@ -203,7 +312,8 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(
                     fontSize: 80,
                     fontWeight: FontWeight.bold,
-                    foreground: Paint()..shader = _constants.shader,
+                    foreground: Paint()..shader = Theme.of(context).brightness == Brightness.dark
+                        ? _constants.shaderDark : _constants.shader,
                   ),
                 ),
               ),
@@ -212,7 +322,8 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
-                  foreground: Paint()..shader = _constants.shader,
+                  foreground: Paint()..shader =Theme.of(context).brightness == Brightness.dark
+                  ?_constants.shaderDark : _constants.shader,
                 ),
               ),
             ],
@@ -284,16 +395,19 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               GestureDetector(
-                onTap: () =>
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_)=> DetailPage(dailyForecastWeather: dailyWeatherForecast,))), //this will open forecast screen
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => DetailPage(
+                          dailyForecastWeather: dailyWeatherForecast,
+                        ))), //this will open forecast screen
                 child: Text(
                   'More',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color: _constants.primaryColor,
+                    color:Theme.of(context).brightness == Brightness.dark
+                    ? _constants.primaryColorDark : _constants.primaryColor,
                   ),
                 ),
               ),
@@ -309,17 +423,30 @@ class _HomePageState extends State<HomePage> {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemBuilder: (BuildContext context, int index) {
-                String forecastTime = hourlyWeatherForecast[index]["time"].substring(11, 16);
-                String forecastWeatherName = hourlyWeatherForecast[index]["condition"]["text"];
-                String forecastWeatherIcon = "${forecastWeatherName.replaceAll(' ', '').toLowerCase()}.png";
-                String forecastTemperature = hourlyWeatherForecast[index]["temp_c"].round().toString();
-                String currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
+                String forecastTime =
+                hourlyWeatherForecast[index]["time"].substring(11, 16);
+                String forecastWeatherName =
+                hourlyWeatherForecast[index]["condition"]["text"];
+                String forecastWeatherIcon =
+                    "${forecastWeatherName.replaceAll(' ', '').toLowerCase()}.png";
+                String forecastTemperature =
+                hourlyWeatherForecast[index]["temp_c"].round().toString();
+                String currentTime =
+                DateFormat('HH:mm:ss').format(DateTime.now());
                 String currentHour = currentTime.substring(0, 2);
-                String forecastHour = hourlyWeatherForecast[index]["time"].substring(11, 13);
+                String forecastHour =
+                hourlyWeatherForecast[index]["time"].substring(11, 13);
                 return Padding(
                   padding: const EdgeInsets.only(right: 5),
                   child: Card(
-                    color: currentHour == forecastHour ? _constants.primaryColor.withOpacity(0.25) : _constants.primaryColor,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? currentHour == forecastHour
+                        ? _constants.primaryColorDark.withOpacity(0.25) // Dark mode color with opacity if the condition is true
+                        : _constants.primaryColorDark // Dark mode color if the condition is false
+                        : currentHour == forecastHour
+                        ? _constants.primaryColor.withOpacity(0.25) // Light mode color with opacity if the condition is true
+                        : _constants.primaryColor, // Light mode color if the condition is false
+
                     elevation: 10,
                     child: Padding(
                       padding: const EdgeInsets.all(10),
@@ -328,7 +455,11 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Text(
                             forecastTime,
-                            style: TextStyle(fontSize: 17, color: _constants.greyColor, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                                fontSize: 17,
+                                color:Theme.of(context).brightness == Brightness.dark
+                                ?_constants.greyColorDark : _constants.greyColor,
+                                fontWeight: FontWeight.w500),
                           ),
                           Image.asset('assets/$forecastWeatherIcon', width: 20),
                           Row(
@@ -336,11 +467,19 @@ class _HomePageState extends State<HomePage> {
                             children: [
                               Text(
                                 forecastTemperature,
-                                style: TextStyle(color: _constants.greyColor, fontSize: 17, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color:Theme.of(context).brightness == Brightness.dark
+                                        ?_constants.greyColorDark : _constants.greyColor,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600),
                               ),
                               Text(
                                 '°',
-                                style: TextStyle(color: _constants.greyColor, fontWeight: FontWeight.bold, fontSize: 18),
+                                style: TextStyle(
+                                    color:Theme.of(context).brightness == Brightness.dark
+                                        ?_constants.greyColorDark : _constants.greyColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18),
                               ),
                             ],
                           ),
