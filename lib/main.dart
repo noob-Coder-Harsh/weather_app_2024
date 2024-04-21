@@ -1,18 +1,12 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:weather_app/local_notifications.dart';
 import 'home_page.dart';
-import 'package:timezone/data/latest.dart' as tz;
-
-
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  tz.initializeTimeZones();
-  runApp(ChangeNotifierProvider(
-      create: (context) => NotificationSettingsProvider(),
-      child: const MyApp()));
+  await LocalNotifications.init();
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -41,29 +35,23 @@ class ThemeProvider with ChangeNotifier {
 
   ThemeData get themeData => _themeData;
 
+  void setThemeMode(ThemeMode mode) {
+    _themeData = mode == ThemeMode.dark ? ThemeData.dark() : ThemeData.light();
+    notifyListeners();
+  }
+
   void toggleTheme() {
-    _themeData = _themeData == ThemeData.light()
-        ? ThemeData.dark()
-        : ThemeData.light(); // Toggle between light and dark themes
+    // Get the current time
+    DateTime now = DateTime.now();
+    // Define the start and end time for night mode (e.g., from 8 PM to 6 AM)
+    int nightModeStartHour = 20;
+    int nightModeEndHour = 6;
+
+    // Check if the current time is between the start and end time for night mode
+    bool isNightTime = now.hour >= nightModeStartHour || now.hour < nightModeEndHour;
+
+    // Set the theme mode based on the time of day
+    _themeData = isNightTime ? ThemeData.dark() : ThemeData.light();
     notifyListeners();
   }
 }
-
-class NotificationSettingsProvider extends ChangeNotifier {
-  bool _isHourlyNotificationsEnabled = false;
-  bool _isDailyNotificationsEnabled = false;
-
-  bool get isHourlyNotificationsEnabled => _isHourlyNotificationsEnabled;
-  bool get isDailyNotificationsEnabled => _isDailyNotificationsEnabled;
-
-  void toggleHourlyNotifications(bool value) {
-    _isHourlyNotificationsEnabled = value;
-    notifyListeners();
-  }
-
-  void toggleDailyNotifications(bool value) {
-    _isDailyNotificationsEnabled = value;
-    notifyListeners();
-  }
-}
-

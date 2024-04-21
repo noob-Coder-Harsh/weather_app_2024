@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share/share.dart';
-import 'package:weather_app/main.dart';
 import 'package:weather_app/settings_page.dart';
 import 'package:weather_app/weather_item.dart';
 import 'package:weather_app/constants.dart';
@@ -13,7 +12,6 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
-import 'notification_services.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -210,7 +208,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.only(right: 8.0),
             child: IconButton(
                 onPressed: () {Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => SettingsPage()),);
+                    MaterialPageRoute(builder: (_) => SettingsPage(location: location, temperature: temperature, currentWeatherStatus: currentWeatherStatus,),));
                 },
                 icon: const Icon(Icons.settings)),
           )

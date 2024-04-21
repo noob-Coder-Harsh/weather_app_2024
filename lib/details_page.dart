@@ -63,20 +63,6 @@ class _DetailPageState extends State<DetailPage> {
         backgroundColor:Theme.of(context).brightness == Brightness.dark
             ? _constants.primaryColorDark : _constants.primaryColor,
         elevation: 0.0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-                onPressed: () {
-              // Navigate to SettingsPage
-              Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => SettingsPage()),
-            );
-    },
-                icon: const Icon(Icons.settings)),
-          )
-        ],
       ),
       body: Stack(
         alignment: Alignment.center,
