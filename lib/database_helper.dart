@@ -36,8 +36,30 @@ class DatabaseHelper {
 
   Future<int> insertWeather(Map<String, dynamic> row) async {
     Database db = await instance.database;
+
+    // Check if the city already exists in the database
+    List<Map<String, dynamic>> result = await db.query(
+      'weather',
+      where: 'location = ?',
+      whereArgs: [row['location']],
+    );
+
+    // If the city exists, delete the existing entry
+    if (result.isNotEmpty) {
+      await db.delete(
+        'weather',
+        where: 'location = ?',
+        whereArgs: [row['location']],
+      );
+      print('deleting data');
+    }
+
+    // Insert the new weather data
+    print('inserting new data');
     return await db.insert('weather', row);
+
   }
+
 
   Future<Map<String, dynamic>> queryWeather() async {
     Database db = await instance.database;

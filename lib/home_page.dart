@@ -1,17 +1,17 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share/share.dart';
-import 'package:weather_app/settings_page.dart';
-import 'package:weather_app/weather_item.dart';
-import 'package:weather_app/constants.dart';
-import 'package:weather_app/details_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:weather_app/database_helper.dart';
 
+import 'package:weather_app/settings_page.dart';
+import 'package:weather_app/weather_item.dart';
+import 'package:weather_app/constants.dart';
+import 'package:weather_app/details_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -21,29 +21,59 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // NotificationServices notificationServices = NotificationServices();
+  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
 
   List<String> cities = [
-    'New Delhi',
+    // Indian cities
     'Mumbai',
-    'Gurgaon',
-    'Aligarh',
-    'Panipat',
-    'Palwal',
+    'Delhi',
     'Bangalore',
     'Kolkata',
     'Chennai',
     'Hyderabad',
     'Pune',
     'Ahmedabad',
+    'Surat',
     'Jaipur',
+    'Lucknow',
+    'Kanpur',
+    'Nagpur',
+    'Patna',
+    'Indore',
+    'Thane',
+    'Bhopal',
+    'Ludhiana',
+    'Agra',
+    'Vadodara',
+
+    // Other popular cities worldwide
+    'New York',
+    'Tokyo',
+    'London',
+    'Paris',
+    'Los Angeles',
+    'Moscow',
+    'Beijing',
+    'Rio de Janeiro',
+    'Sydney',
+    'Dubai',
+    'Singapore',
+    'Rome',
+    'Berlin',
+    'Toronto',
+    'Istanbul',
+    'Cairo',
+    'Seoul',
+    'Shanghai',
+    'Hong Kong',
+    'Barcelona'
   ];
 
   final Constants _constants = Constants();
 
-  static String apiKey = '4efce536c5864e80a2a145802241404'; //Paste Your API Here
+  static String apiKey = '4efce536c5864e80a2a145802241404'; // Paste Your API Here
 
-  String location = 'Mumbai'; //Default location
+  String location = 'Mumbai'; // Default location
 
   String weatherIcon = 'heavycloud.png';
   int temperature = 0;
@@ -52,16 +82,33 @@ class _HomePageState extends State<HomePage> {
   int cloud = 0;
   String currentDate = '';
 
+  String locationDB = '';
+  String weatherIconDB = 'heavycloud.png';
+  int temperatureDB = 0;
+  int windSpeedDB = 0;
+  int humidityDB = 0;
+  int cloudDB = 0;
+  String currentDateDB = '';
+
+  bool isLoading = false;
+
   List hourlyWeatherForecast = [];
   List dailyWeatherForecast = [];
 
   String currentWeatherStatus = '';
 
-  //API Call
+  // API Call
   String searchWeatherAPI =
       "https://api.weatherapi.com/v1/forecast.json?key=$apiKey&days=7&q=";
 
-  void fetchWeatherData(String searchText) async {
+  @override
+  void initState() {
+    super.initState();
+    getUserLocation();
+    isLoading = true;
+  }
+
+  Future<void> fetchWeatherData(String searchText) async {
     try {
       var searchResult =
       await http.get(Uri.parse(searchWeatherAPI + searchText));
@@ -70,39 +117,65 @@ class _HomePageState extends State<HomePage> {
           json.decode(searchResult.body) ?? 'No data');
 
       var locationData = weatherData["location"];
+      var currentWeather = weatherData["current"];
+      setState(() {
+        location = getShortLocationName(locationData["name"]);
+        var parsedDate =
+        DateTime.parse(locationData["localtime"].substring(0, 10));
+        var newDate = DateFormat('MMMMEEEEd').format(parsedDate);
+        currentDate = newDate;
 
-      // Check if the country is India before updating the data
-      if (locationData["country"] == "India") {
-        var currentWeather = weatherData["current"];
+        // Update Weather
+        currentWeatherStatus = currentWeather["condition"]["text"];
+        weatherIcon =
+        "${currentWeatherStatus.replaceAll(' ', '').toLowerCase()}.png";
+        temperature = currentWeather["temp_c"].toInt();
+        windSpeed = currentWeather["wind_kph"].toInt();
+        humidity = currentWeather["humidity"].toInt();
+        cloud = currentWeather["cloud"].toInt();
 
-        setState(() {
-          location = getShortLocationName(locationData["name"]);
+        // Forecast data
+        dailyWeatherForecast = weatherData["forecast"]["forecastday"];
+        hourlyWeatherForecast = dailyWeatherForecast[0]["hour"];
+        print(dailyWeatherForecast);
+      });
 
-          var parsedDate =
-          DateTime.parse(locationData["localtime"].substring(0, 10));
-          var newDate = DateFormat('MMMMEEEEd').format(parsedDate);
-          currentDate = newDate;
-
-          //updateWeather
-          currentWeatherStatus = currentWeather["condition"]["text"];
-          weatherIcon =
-          "${currentWeatherStatus.replaceAll(' ', '').toLowerCase()}.png";
-          temperature = currentWeather["temp_c"].toInt();
-          windSpeed = currentWeather["wind_kph"].toInt();
-          humidity = currentWeather["humidity"].toInt();
-          cloud = currentWeather["cloud"].toInt();
-
-          //Forecast data
-          dailyWeatherForecast = weatherData["forecast"]["forecastday"];
-          hourlyWeatherForecast = dailyWeatherForecast[0]["hour"];
-          print(dailyWeatherForecast);
-        });
-      } else {
-        // Handle the case when the location is not in India
-        print("Location is not in India");
-      }
+      await _databaseHelper.insertWeather({
+        'location': location,
+        'weatherIcon': weatherIcon,
+        'temperature': temperature,
+        'windSpeed': windSpeed,
+        'humidity': humidity,
+        'cloud': cloud,
+        'currentDate': currentDate,
+      });
+      print('Data inserted');
     } catch (e) {
-      //debugPrint(e);
+      print('Failed to fetch data: $e');
+      // If fetching fails, load data from the database
+      await _loadWeatherData();
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadWeatherData() async {
+    try {
+      Map<String, dynamic> weatherData = await _databaseHelper.queryWeather();
+      setState(() {
+        locationDB = weatherData['location'] ?? '';
+        weatherIconDB = weatherData['weatherIcon'] ?? '';
+        temperatureDB = weatherData['temperature'] ?? 0;
+        windSpeedDB = weatherData['windSpeed'] ?? 0;
+        humidityDB = weatherData['humidity'] ?? 0;
+        cloudDB = weatherData['cloud'] ?? 0;
+        currentDateDB = weatherData['currentDate'] ?? '';
+      });
+      print('Data loaded');
+    } catch (e) {
+      print('Error loading weather data: $e');
     }
   }
 
@@ -150,10 +223,10 @@ class _HomePageState extends State<HomePage> {
     });
 
     // Fetch weather data using the location name
-    fetchWeatherData(currentLocationName);
+    await fetchWeatherData(currentLocationName);
   }
 
-  //function to return the first two names of the string location
+  // Function to return the first two names of the string location
   static String getShortLocationName(String s) {
     List<String> wordList = s.split(" ");
 
@@ -177,24 +250,47 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-  void initState() {
-    getUserLocation(); // Get user's location when the app starts
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values);
 
     Size size = MediaQuery.of(context).size;
+    Widget body;
+
+    if (isLoading) {
+      // Show a loading indicator while data is being fetched
+      body = const Center(child: CircularProgressIndicator());
+    } else {
+      // Show the actual weather data
+      body = Container(
+        width: size.width,
+        height: size.height,
+        padding: const EdgeInsets.only(top: 30, left: 10, right: 10),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? _constants.primaryColorDark.withOpacity(0.5)
+            : _constants.primaryColor.withOpacity(0.1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Main Blue container
+            buildCityWeather(location),
+            buildHourlyWeatherForecast(),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ?_constants.primaryColorDark : _constants.primaryColor,
-        title: const Text('Current Weather Status',
-          style: TextStyle(fontSize: 24, color: Colors.white54,
+            ? _constants.primaryColorDark
+            : _constants.primaryColor,
+        title: const Text(
+          'Current Weather Status',
+          style: TextStyle(
+              fontSize: 24,
+              color: Colors.white54,
               fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -207,29 +303,21 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: IconButton(
-                onPressed: () {Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => SettingsPage(location: location, temperature: temperature, currentWeatherStatus: currentWeatherStatus,),));
+                onPressed: () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => SettingsPage(
+                            location: location,
+                            temperature: temperature,
+                            currentWeatherStatus: currentWeatherStatus,
+                          )));
                 },
                 icon: const Icon(Icons.settings)),
           )
         ],
       ),
-      body: Container(
-        width: size.width,
-        height: size.height,
-        padding: const EdgeInsets.only(top: 30, left: 10, right: 10),
-        color: Theme.of(context).brightness == Brightness.dark
-            ? _constants.primaryColor.withOpacity(0.5) // Dark theme color
-            : _constants.primaryColor.withOpacity(0.1), // Light theme color
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            //main Blue container
-            buildCityWeather(location),
-            buildHourlyWeatherForecast(),
-          ],
-        ),
-      ),
+      body: body,
     );
   }
 
@@ -240,11 +328,13 @@ class _HomePageState extends State<HomePage> {
       height: size.height * .65,
       decoration: BoxDecoration(
         gradient: Theme.of(context).brightness == Brightness.dark
-          ? _constants.linearGradientBlueDark : _constants.linearGradientBlue,
+            ? _constants.linearGradientBlueDark
+            : _constants.linearGradientBlue,
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark
-            ? _constants.primaryColorDark.withOpacity(0.5) : _constants.primaryColor.withOpacity(0.5),
+                ? _constants.primaryColorDark.withOpacity(0.5)
+                : _constants.primaryColor.withOpacity(0.5),
             spreadRadius: 5,
             blurRadius: 7,
             offset: const Offset(0, 3),
@@ -255,7 +345,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          //Search Widget
+          // Search Widget
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -286,9 +376,10 @@ class _HomePageState extends State<HomePage> {
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
-                    setState(() {
+                    setState(()  {
                       location = newValue!;
                       fetchWeatherData(location);
+                       _loadWeatherData();
                     });
                   },
                 ),
@@ -310,8 +401,10 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(
                     fontSize: 80,
                     fontWeight: FontWeight.bold,
-                    foreground: Paint()..shader = Theme.of(context).brightness == Brightness.dark
-                        ? _constants.shaderDark : _constants.shader,
+                    foreground: Paint()
+                      ..shader = Theme.of(context).brightness == Brightness.dark
+                          ? _constants.shaderDark
+                          : _constants.shader,
                   ),
                 ),
               ),
@@ -320,8 +413,10 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
-                  foreground: Paint()..shader =Theme.of(context).brightness == Brightness.dark
-                  ?_constants.shaderDark : _constants.shader,
+                  foreground: Paint()
+                    ..shader = Theme.of(context).brightness == Brightness.dark
+                        ? _constants.shaderDark
+                        : _constants.shader,
                 ),
               ),
             ],
@@ -404,8 +499,9 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
-                    color:Theme.of(context).brightness == Brightness.dark
-                    ? _constants.primaryColorDark : _constants.primaryColor,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? _constants.primaryColorDark
+                        : _constants.primaryColor,
                   ),
                 ),
               ),
@@ -439,12 +535,11 @@ class _HomePageState extends State<HomePage> {
                   child: Card(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? currentHour == forecastHour
-                        ? _constants.primaryColorDark.withOpacity(0.25) // Dark mode color with opacity if the condition is true
-                        : _constants.primaryColorDark // Dark mode color if the condition is false
+                        ? _constants.primaryColorDark.withOpacity(0.25)
+                        : _constants.primaryColorDark
                         : currentHour == forecastHour
-                        ? _constants.primaryColor.withOpacity(0.25) // Light mode color with opacity if the condition is true
-                        : _constants.primaryColor, // Light mode color if the condition is false
-
+                        ? _constants.primaryColor.withOpacity(0.25)
+                        : _constants.primaryColor,
                     elevation: 10,
                     child: Padding(
                       padding: const EdgeInsets.all(10),
@@ -455,27 +550,34 @@ class _HomePageState extends State<HomePage> {
                             forecastTime,
                             style: TextStyle(
                                 fontSize: 17,
-                                color:Theme.of(context).brightness == Brightness.dark
-                                ?_constants.greyColorDark : _constants.greyColor,
+                                color: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                    ? _constants.greyColorDark
+                                    : _constants.greyColor,
                                 fontWeight: FontWeight.w500),
                           ),
-                          Image.asset('assets/$forecastWeatherIcon', width: 20),
+                          Image.asset('assets/$forecastWeatherIcon',
+                              width: 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 forecastTemperature,
                                 style: TextStyle(
-                                    color:Theme.of(context).brightness == Brightness.dark
-                                        ?_constants.greyColorDark : _constants.greyColor,
+                                    color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                        ? _constants.greyColorDark
+                                        : _constants.greyColor,
                                     fontSize: 17,
                                     fontWeight: FontWeight.w600),
                               ),
                               Text(
                                 '°',
                                 style: TextStyle(
-                                    color:Theme.of(context).brightness == Brightness.dark
-                                        ?_constants.greyColorDark : _constants.greyColor,
+                                    color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                        ? _constants.greyColorDark
+                                        : _constants.greyColor,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18),
                               ),
