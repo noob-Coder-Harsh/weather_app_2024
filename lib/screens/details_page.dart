@@ -1,8 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:weather_app/settings_page.dart';
-import 'package:weather_app/weather_item.dart';
+import 'package:weather_app/screens/settings_page.dart';
+import 'package:weather_app/widgets/weather_item.dart';
 import 'package:weather_app/constants.dart';
 import 'package:intl/intl.dart';
 

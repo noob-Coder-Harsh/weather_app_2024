@@ -6,12 +6,16 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:weather_app/database_helper.dart';
+import 'package:weather_app/helper_classes/database_helper.dart';
+import 'package:weather_app/widgets/search_widget.dart';
 
-import 'package:weather_app/settings_page.dart';
-import 'package:weather_app/weather_item.dart';
+import 'package:weather_app/screens/settings_page.dart';
+import 'package:weather_app/widgets/weather_animation.dart';
+import 'package:weather_app/widgets/weather_item.dart';
 import 'package:weather_app/constants.dart';
-import 'package:weather_app/details_page.dart';
+import 'package:weather_app/screens/details_page.dart';
+
+import '../widgets/locations.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -22,81 +26,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
-
-  List<String> cities = [
-    // Indian cities
-    'Mumbai',
-    'Delhi',
-    'Bangalore',
-    'Kolkata',
-    'Chennai',
-    'Hyderabad',
-    'Pune',
-    'Ahmedabad',
-    'Surat',
-    'Jaipur',
-    'Lucknow',
-    'Kanpur',
-    'Nagpur',
-    'Patna',
-    'Indore',
-    'Thane',
-    'Bhopal',
-    'Ludhiana',
-    'Agra',
-    'Vadodara',
-
-    // Other popular cities worldwide
-    'New York',
-    'Tokyo',
-    'London',
-    'Paris',
-    'Los Angeles',
-    'Moscow',
-    'Beijing',
-    'Rio de Janeiro',
-    'Sydney',
-    'Dubai',
-    'Singapore',
-    'Rome',
-    'Berlin',
-    'Toronto',
-    'Istanbul',
-    'Cairo',
-    'Seoul',
-    'Shanghai',
-    'Hong Kong',
-    'Barcelona'
-  ];
-
+  final List<String> cities = CityData.cities;
   final Constants _constants = Constants();
-
   static String apiKey = '4efce536c5864e80a2a145802241404'; // Paste Your API Here
-
   String location = 'Mumbai'; // Default location
-
   String weatherIcon = 'heavycloud.png';
   int temperature = 0;
   int windSpeed = 0;
   int humidity = 0;
   int cloud = 0;
   String currentDate = '';
-
-  String locationDB = '';
-  String weatherIconDB = 'heavycloud.png';
-  int temperatureDB = 0;
-  int windSpeedDB = 0;
-  int humidityDB = 0;
-  int cloudDB = 0;
-  String currentDateDB = '';
-
   bool isLoading = false;
-
   List hourlyWeatherForecast = [];
   List dailyWeatherForecast = [];
-
   String currentWeatherStatus = '';
-
   // API Call
   String searchWeatherAPI =
       "https://api.weatherapi.com/v1/forecast.json?key=$apiKey&days=7&q=";
@@ -112,19 +55,16 @@ class _HomePageState extends State<HomePage> {
     try {
       var searchResult =
       await http.get(Uri.parse(searchWeatherAPI + searchText));
-
       final weatherData = Map<String, dynamic>.from(
           json.decode(searchResult.body) ?? 'No data');
-
       var locationData = weatherData["location"];
       var currentWeather = weatherData["current"];
       setState(() {
-        location = getShortLocationName(locationData["name"]);
+        location = locationData["name"];
         var parsedDate =
         DateTime.parse(locationData["localtime"].substring(0, 10));
         var newDate = DateFormat('MMMMEEEEd').format(parsedDate);
         currentDate = newDate;
-
         // Update Weather
         currentWeatherStatus = currentWeather["condition"]["text"];
         weatherIcon =
@@ -165,13 +105,13 @@ class _HomePageState extends State<HomePage> {
     try {
       Map<String, dynamic> weatherData = await _databaseHelper.queryWeather();
       setState(() {
-        locationDB = weatherData['location'] ?? '';
-        weatherIconDB = weatherData['weatherIcon'] ?? '';
-        temperatureDB = weatherData['temperature'] ?? 0;
-        windSpeedDB = weatherData['windSpeed'] ?? 0;
-        humidityDB = weatherData['humidity'] ?? 0;
-        cloudDB = weatherData['cloud'] ?? 0;
-        currentDateDB = weatherData['currentDate'] ?? '';
+        location = weatherData['location'] ?? '';
+        weatherIcon = weatherData['weatherIcon'] ?? '';
+        temperature = weatherData['temperature'] ?? 0;
+        windSpeed = weatherData['windSpeed'] ?? 0;
+        humidity = weatherData['humidity'] ?? 0;
+        cloud = weatherData['cloud'] ?? 0;
+        currentDate = weatherData['currentDate'] ?? '';
       });
       print('Data loaded');
     } catch (e) {
@@ -185,35 +125,24 @@ class _HomePageState extends State<HomePage> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Location services are not enabled
       return;
     }
-
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Permissions are denied, show error message or default to a fallback position
         return;
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately.
       return;
     }
-
-    // When everything is fine, get the user's current position
     Position position = await Geolocator.getCurrentPosition();
-
-    // Reverse geocode the coordinates to get location name
     List<Placemark> placeMarks = await placemarkFromCoordinates(
       position.latitude,
       position.longitude,
     );
-
     String currentLocationName = placeMarks.first.locality ?? 'Unknown';
-
     setState(() {
       if (cities.contains(currentLocationName)) {
         cities.remove(currentLocationName);
@@ -221,24 +150,7 @@ class _HomePageState extends State<HomePage> {
       cities.insert(0, currentLocationName);
       location = currentLocationName;
     });
-
-    // Fetch weather data using the location name
     await fetchWeatherData(currentLocationName);
-  }
-
-  // Function to return the first two names of the string location
-  static String getShortLocationName(String s) {
-    List<String> wordList = s.split(" ");
-
-    if (wordList.isNotEmpty) {
-      if (wordList.length > 1) {
-        return "${wordList[0]} ${wordList[1]}";
-      } else {
-        return wordList[0];
-      }
-    } else {
-      return " ";
-    }
   }
 
   void shareWeatherData() {
@@ -259,7 +171,7 @@ class _HomePageState extends State<HomePage> {
 
     if (isLoading) {
       // Show a loading indicator while data is being fetched
-      body = const Center(child: CircularProgressIndicator());
+      body = const WeatherLoadingAnimation();
     } else {
       // Show the actual weather data
       body = Container(
@@ -358,32 +270,23 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(
                 width: 4,
               ),
-              DropdownButtonHideUnderline(
-                child: DropdownButton(
-                  dropdownColor: Colors.blue,
-                  value: location,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.white70,
-                  ),
-                  items: cities.map((String location) {
-                    return DropdownMenuItem(
-                      value: location,
-                      child: Text(
-                        location,
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(()  {
-                      location = newValue!;
-                      fetchWeatherData(location);
-                       _loadWeatherData();
+             Text(location,style: const TextStyle(color: Colors.white70,fontWeight: FontWeight.bold,fontSize: 18,letterSpacing: 1),),
+              IconButton(
+                icon: Icon(Icons.keyboard_arrow_down, color: Colors.white70,
+                  size: 25,),
+                onPressed: () async {
+                  String? selectedCity = await showSearch<String>(
+                    context: context,
+                    delegate: CitySearchDelegate(cities),
+                  );
+                  if (selectedCity != null) {
+                    setState(() {
+                      location = selectedCity;
                     });
-                  },
-                ),
-              )
+                    fetchWeatherData(selectedCity);
+                  }
+                },
+              ),
             ],
           ),
           SizedBox(

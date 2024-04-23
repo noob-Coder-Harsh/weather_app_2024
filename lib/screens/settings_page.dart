@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:weather_app/constants.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:weather_app/local_notifications.dart';
-import 'main.dart';
+import 'package:weather_app/helper_classes/notifications_helper.dart';
+import '../main.dart';
 
 
 class SettingsPage extends StatefulWidget {
@@ -107,13 +107,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.all(16.0),
                 children: [
                   SwitchListTile(
-                    title: Text('Dark Theme',style: TextStyle(fontWeight: FontWeight.bold,
-                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white:_constants.primaryColor),),
-                    value: themeProvider.themeData == ThemeData.dark(),
+                    title: Text('Dark Theme', style: TextStyle(fontWeight: FontWeight.bold,
+                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white : _constants.primaryColor)),
+                    value: themeProvider.isDarkModeEnabled,
                     onChanged: (value) {
                       setState(() {
-                        _isDarkModeEnabled = !_isDarkModeEnabled;
-                        themeProvider.toggleTheme(); // Toggle theme on switch change
+                        themeProvider.setDarkMode(value); // Toggle dark mode flag and update theme immediately
                       });
                     },
                   ),
