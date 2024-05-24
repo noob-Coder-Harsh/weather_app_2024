@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weather_app/helper_classes/notifications_helper.dart';
 import '../main.dart';
 
-
 class SettingsPage extends StatefulWidget {
   final String location;
   final int temperature;
@@ -19,7 +18,7 @@ class SettingsPage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _SettingsPageState createState() => _SettingsPageState();
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
@@ -29,8 +28,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isDarkModeEnabled = false;
   bool _isNotificationEnabled = false;
   String _refreshInterval = 'Every Hour';
-  ThemeMode _themeMode = ThemeMode.system; // Initialize with system theme mode
-
 
   @override
   void initState() {
@@ -44,7 +41,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _refreshTime = prefs.getInt('refreshTime') ?? 1;
       _isDarkModeEnabled = prefs.getBool('isDarkModeEnabled') ?? false;
-      _isNotificationEnabled = prefs.getBool('isNotificationEnabled') ?? false; // Added
+      _isNotificationEnabled = prefs.getBool('isNotificationEnabled') ?? false;
     });
   }
 
@@ -53,7 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('refreshTime', _refreshTime);
     await prefs.setBool('isDarkModeEnabled', _isDarkModeEnabled);
-    await prefs.setBool('isNotificationEnabled', _isNotificationEnabled); // Added
+    await prefs.setBool('isNotificationEnabled', _isNotificationEnabled);
   }
 
   @override
@@ -109,48 +106,50 @@ class _SettingsPageState extends State<SettingsPage> {
                   SwitchListTile(
                     title: Text('Dark Theme', style: TextStyle(fontWeight: FontWeight.bold,
                         color: themeProvider.themeData == ThemeData.dark() ? Colors.white : _constants.primaryColor)),
-                    value: themeProvider.isDarkModeEnabled,
+                    value: _isDarkModeEnabled,
                     onChanged: (value) {
                       setState(() {
+                        _isDarkModeEnabled = value;
                         themeProvider.setDarkMode(value); // Toggle dark mode flag and update theme immediately
                       });
+                      _saveSettings();
                     },
                   ),
-                  SwitchListTile( // Added
-                    title: Text('Notifications',style: TextStyle(fontWeight: FontWeight.bold,
-                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white:_constants.primaryColor),),
+                  SwitchListTile(
+                    title: Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold,
+                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white : _constants.primaryColor)),
                     value: _isNotificationEnabled,
                     onChanged: (value) {
                       setState(() {
                         _isNotificationEnabled = value;
                       });
+                      _saveSettings();
                     },
                   ),
                   ListTile(
-                    title: Text('Refresh Interval',style: TextStyle(fontWeight: FontWeight.bold,
-                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white:_constants.primaryColor),),
+                    title: Text('Refresh Interval', style: TextStyle(fontWeight: FontWeight.bold,
+                        color: themeProvider.themeData == ThemeData.dark() ? Colors.white : _constants.primaryColor)),
                     trailing: DropdownButton<String>(
                       value: _refreshInterval,
                       onChanged: (newValue) {
                         setState(() {
                           _refreshInterval = newValue!;
-                          if (_isNotificationEnabled) { // Check if notifications are enabled
+                          if (_isNotificationEnabled) {
                             if (newValue == 'Every Hour') {
                               LocalNotifications.showHourlyNotifications(
-                                  title: '$currentLocation $currentTemperature °C',
-                                  body: "weather status - $currentWeather", payload: 'payload'
+                                title: '$currentLocation $currentTemperature °C',
+                                body: "weather status - $currentWeather",
                               );
                             } else if (newValue == 'Every Day') {
                               LocalNotifications.showDailyNotifications(
-                                  title: '$currentLocation $currentTemperature °C',
-                                  body: "weather status - $currentWeather", payload: 'payload'
+                                title: '$currentLocation $currentTemperature °C',
+                                body: "weather status - $currentWeather",
                               );
                             }
                           }
                         });
                       },
-
-                      items: <String>['Every Hour', 'Every Day',]
+                      items: <String>['Every Hour', 'Every Day']
                           .map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -158,9 +157,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         );
                       }).toList(),
                     ),
-
                   ),
-
                   ElevatedButton(
                     onPressed: _isNotificationEnabled
                         ? () {
@@ -170,10 +167,20 @@ class _SettingsPageState extends State<SettingsPage> {
                         payload: 'payload',
                       );
                     }
-                        : null, // Set onPressed to null if notifications are disabled
+                        : null,
                     child: const Text('notification'),
                   ),
-
+                  ElevatedButton(
+                    onPressed: _isNotificationEnabled
+                        ? () {
+                      LocalNotifications.showHourlyNotifications(
+                        title: '$currentLocation $currentTemperature °C',
+                        body: "weather status - $currentWeather",
+                      );
+                    }
+                        : null,
+                    child: const Text('Periodic notification'),
+                  ),
                   ElevatedButton(
                     onPressed: _saveSettings,
                     style: ElevatedButton.styleFrom(
@@ -182,7 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           : _constants.primaryColor,
                     ),
                     child: const Text('Save Settings',
-                      style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

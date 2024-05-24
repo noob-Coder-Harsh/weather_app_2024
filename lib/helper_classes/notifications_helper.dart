@@ -1,4 +1,3 @@
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -10,23 +9,24 @@ class LocalNotifications {
   static final onClickNotification = BehaviorSubject<String>();
 
   // on tap on any notification
-  static void onNotificationTap(NotificationDetails notificationDetails) {
-
+  static void onNotificationTap(NotificationResponse notificationResponse) {
+    final payload = notificationResponse.payload;
+    if (payload != null) {
+      onClickNotification.add(payload);
+    }
   }
 
   // initialize the local notifications
   static Future init() async {
-    // initialise the plugin. app_icon needs to be added as a drawable resource to the Android head project
     const AndroidInitializationSettings initializationSettingsAndroid =
     AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings =
+    const InitializationSettings initializationSettings =
     InitializationSettings(android: initializationSettingsAndroid);
 
-    // Initialize time zones
     tz.initializeTimeZones();
 
-    // Initialize the plugin
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings,);
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onDidReceiveNotificationResponse: onNotificationTap);
   }
 
   // show a simple notification
@@ -47,11 +47,9 @@ class LocalNotifications {
         .show(0, title, body, notificationDetails, payload: payload);
   }
 
-
   static Future showHourlyNotifications({
     required String title,
     required String body,
-    required String payload,
   }) async {
     const AndroidNotificationDetails androidNotificationDetails =
     AndroidNotificationDetails('channel 2', 'your channel name',
@@ -63,26 +61,24 @@ class LocalNotifications {
     NotificationDetails(android: androidNotificationDetails);
 
     try {
-      await _flutterLocalNotificationsPlugin.periodicallyShow(
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
         1,
         title,
         body,
-        RepeatInterval.hourly,
+        tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1)),
         notificationDetails,
-        androidAllowWhileIdle: true,
-        payload: payload,
+        // androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
       );
     } on Exception catch (e) {
       print("Failed to schedule notification: $e");
-      // Handle the exception gracefully, e.g., by scheduling inexact alarms or displaying a message to the user.
     }
-
   }
 
   static Future showDailyNotifications({
     required String title,
     required String body,
-    required String payload,
   }) async {
     const AndroidNotificationDetails androidNotificationDetails =
     AndroidNotificationDetails('channel 2', 'your channel name',
@@ -95,19 +91,15 @@ class LocalNotifications {
 
     try {
       await _flutterLocalNotificationsPlugin.periodicallyShow(
-        1,
+        2,
         title,
         body,
-        RepeatInterval.hourly,
+        RepeatInterval.daily,
         notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: payload,
+        // androidAllowWhileIdle: true,
       );
     } on Exception catch (e) {
       print("Failed to schedule notification: $e");
-      // Handle the exception gracefully, e.g., by scheduling inexact alarms or displaying a message to the user.
     }
-
   }
-
 }

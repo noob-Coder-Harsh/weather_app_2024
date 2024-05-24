@@ -272,7 +272,7 @@ class _HomePageState extends State<HomePage> {
               ),
              Text(location,style: const TextStyle(color: Colors.white70,fontWeight: FontWeight.bold,fontSize: 18,letterSpacing: 1),),
               IconButton(
-                icon: Icon(Icons.keyboard_arrow_down, color: Colors.white70,
+                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70,
                   size: 25,),
                 onPressed: () async {
                   String? selectedCity = await showSearch<String>(
